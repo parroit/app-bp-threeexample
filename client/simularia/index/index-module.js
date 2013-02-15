@@ -9,57 +9,193 @@ define(function(require, exports, module) {
     function log(msg){
         //console.log(msg);
     }
-    Vector.prototype.to3=function(){
-        return new THREE.Vector3(this.elements[0],this.elements[1],this.elements[2]);
+    var requestAnimFrame = (function(){
+        return  window.requestAnimationFrame       ||
+            window.webkitRequestAnimationFrame ||
+            window.mozRequestAnimationFrame    ||
+            window.oRequestAnimationFrame      ||
+            window.msRequestAnimationFrame     ||
+            function(callback, element){
+                window.setTimeout(callback, 1000 / 60);
+            };
+    })();
+
+
+    THREE.Vector3.zero=function() {
+        return new THREE.Vector3(0, 0, 0);
     };
 
+    THREE.Vector3.random=function(max) {
+        var v = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
+        v.multiplyScalar(max);
+        return v;
+    };
 
+    THREE.Mesh.prototype.merge=function(otherParticle,scene) {
+        if (otherParticle.geometry.radius>this.geometry.radius){
+            otherParticle.merge(this);
+            return;
+        }
+        otherParticle.destroyed = true;
+        log("particle "+this.id +" collide with "+otherParticle.id/*+" new radius "+radiusFromVolume(this.volume+otherParticle.volume)*/);
+        this.setVolume(this.volume+otherParticle.volume,scene);
+    };
+    THREE.Mesh.prototype.calculateVolume=function (){
+        this.volume=Math.pow(this.geometry.radius,3) * (4.0/3.0) * Math.PI;
+    };
+    THREE.Mesh.prototype.calculateMass=function (){
+        this.mass=this.volume*this.density;
+    };
+    function radiusFromVolume(volume) {
+
+        return Math.pow((volume * 3.0) / (4.0 * Math.PI), 1 / 3);
+    }
+
+    THREE.Mesh.prototype.checkStar=function(scene) {
+        if (this.geometry.radius > 160.9 && !this.isStar) {
+            this.star = new THREE.PointLight(0xFFFFFF, 1.0);
+            this.isStar = true;
+            this.star.position.copy(this.position);
+
+            // add to the scene
+            scene.add(this.star);
+        }
+    };
+
+    THREE.Mesh.prototype.setVolume=function (volume,scene){
+        log("old volume:"+this.volume+" new volume:"+volume);
+
+        this.volume=volume;
+
+        var newRadius = radiusFromVolume(volume);
+        var oldRadius = this.geometry.radius;
+        log("old radius:"+oldRadius+" new radius:"+newRadius);
+        this.geometry.radius = newRadius;
+        this.calculateMass();
+        var fact = newRadius/oldRadius;
+        this.checkStar(scene);
+
+        log(fact);
+        this.scale.x *= fact;
+        this.scale.y *= fact;
+        this.scale.z *= fact;
+
+
+
+    };
+
+    THREE.Mesh.prototype.log=function(){
+        function vectorLog(v) {
+            return "["+Math.round(v.x * 100) / 100 +","+ Math.round(v.y * 100) / 100 + ","+Math.round(v.z * 100) / 100+"]";
+        }
+
+        log("#" + this.id +
+            " speed:" + vectorLog(this.speed)+
+            " acc:"+vectorLog(this.acceleration)+
+            " mass:"+this.mass+
+            " radius:"+this.geometry.radius
+        );
+    };
+
+    THREE.Mesh.prototype.updatePosition=function(speed){
+        this.position.add(speed);
+
+        if (this.isStar){
+            this.star.position.add(speed);
+        }
+    };
 
 
     function ShowSimulation($scope, $http, $location,$routeParams) {
 
 
 
-        var renderer = new THREE.WebGLRenderer();
-        // create the sphere's material
-        var sphereMaterial =new THREE.MeshLambertMaterial({
-            color: 0xCC0000
-        });
+
 
         var particles=[];
-        var totalSpheres=40;
+        $scope.particlesCount=40;
+        $scope.force=0.00;
+        $scope.collisions=0;
 
 
+        var deltaCameraX=0;
+        var deltaCameraY=0;
+        var camera,scene,renderer,sphereMaterials;
+        var center=THREE.Vector3.zero();
+        $scope.cameraPosition=function(e){
+            if (camera){
+                if (e.altKey){
+                    deltaCameraX= (-e.pageX+350)/20;
+                    deltaCameraY= (+e.pageY-480)/20;
+                }else {
+                    /*camera.position.x -= -(e.pageX-350 );
+                    camera.position.y -= -(e.pageY-550 );*/
+                    deltaCameraX=0;
+                    deltaCameraY= 0;
+                }
+                console.log((e.pageX-350)+":"+(e.pageY-480));
+
+                renderer.render(scene, camera);
+            }
+
+        };
+        window.addEventListener('DOMMouseScroll', mousewheel, false);
+        window.addEventListener('mousewheel', mousewheel, false);
+
+        function mousewheel( e )
+        {
+            if (camera){
+
+                var d = ((typeof e.wheelDelta != "undefined")?(-e.wheelDelta):e.detail);
+                camera.position.z+= d;
+                renderer.render(scene, camera);
+            }
+        }
 
 
-        var camera,scene;
-        var center=Vector.Zero(3);
-        var collisions=0;
-        $scope.zoomPlus=function(){
+        /*$scope.zoomPlus=function(){
             camera.position.z -= 100;
-            renderer.render(scene, camera)
+            renderer.render(scene, camera);
         };
         $scope.zoomMinus=function(){
             camera.position.z += 100;
-            renderer.render(scene, camera)
+            renderer.render(scene, camera);
         };
         $scope.zoomGiu=function(){
             camera.position.y -= 100;
-            renderer.render(scene, camera)
+            renderer.render(scene, camera);
         };
         $scope.zoomSu=function(){
             camera.position.y += 100;
-            renderer.render(scene, camera)
+            renderer.render(scene, camera);
         };
         $scope.zoomSin=function(){
             camera.position.x -= 100;
-            renderer.render(scene, camera)
+            renderer.render(scene, camera);
         };
         $scope.zoomDes=function(){
             camera.position.x += 100;
-            renderer.render(scene, camera)
-        };
+            renderer.render(scene, camera);
+        };*/
+
+
+
         $scope.setupScene=function(){
+            renderer = new THREE.WebGLRenderer();
+            // create the sphere's material
+            sphereMaterials=[];
+            for (var i=0;i<100;i++){
+                var color = new THREE.Color();
+                color.setRGB(Math.random(),Math.random(),Math.random());
+                var mat=new THREE.MeshPhongMaterial({
+                    color: color
+                });
+                sphereMaterials.push(mat);
+            }
+
+
+
+
             // set the scene size
             var WIDTH = "600",
                 HEIGHT = "600";
@@ -100,7 +236,7 @@ define(function(require, exports, module) {
 
 
 
-            for(var x=0;x<totalSpheres;x++){
+            for(var x=0;x<$scope.particlesCount;x++){
                 newParticle();
             }
 
@@ -114,9 +250,7 @@ define(function(require, exports, module) {
             var pointLight = new THREE.PointLight(0xFFFFFF,1);
 
             // set its position
-            pointLight.position.x = 0;
-            pointLight.position.y = 0;
-            pointLight.position.z = 0;
+            pointLight.position=THREE.Vector3.zero();
 
             // add to the scene
             scene.add(pointLight);
@@ -128,14 +262,17 @@ define(function(require, exports, module) {
         };
 
         $scope.start=function(){
-            setInterval(step,10);
+
+            requestAnimFrame(step);
+
+
         };
 
 
         function updatePositions() {
             for (var i = 0, l = particles.length; i < l; i++) {
                 var particle = particles[i];
-                particle.setPosition(particle.pos.add(particle.speed));
+                particle.updatePosition(particle.speed);
             }
         }
         function updateSpeeds() {
@@ -144,11 +281,14 @@ define(function(require, exports, module) {
                 /* if (particle.pos.add(particle.speed).distanceFrom(center)>300){
                  particle.speed=particle.speed.multiply(-1);
                  }*/
-                var speed = particle.speed.add(particle.acceleration.multiply(0.01)).multiply(0.999999);
-                if (isNaN(speed.elements[0]) || isNaN(speed.elements[1]) || isNaN(speed.elements[2]))
+                var speed = THREE.Vector3.zero();
+                speed.copy(particle.speed);
+                speed.add(particle.acceleration.multiplyScalar(0.01));
+                speed.multiplyScalar(0.999999);
+                if (isNaN(speed.x) || isNaN(speed.y) || isNaN(speed.z))
                     log("bad accel for "+particle.id);
                 else
-                    particle.speed=speed;
+                    particle.speed.copy(speed);
             }
         }
         function removeDestroyed() {
@@ -182,22 +322,23 @@ define(function(require, exports, module) {
 
                     for (var otherIdx = thisIdx+1; otherIdx < l; otherIdx++) {
                         var otherParticle = particles[otherIdx];
-                        var distance = thisParticle.pos.distanceFrom(otherParticle.pos);
+                        var distance = thisParticle.position.distanceTo(otherParticle.position);
                         thisParticle.distances[otherIdx]=otherParticle.distances[thisIdx]=distance;
                         if (distance<thisParticle.geometry.radius+otherParticle.geometry.radius){
 
-                            collisions++;
-                            $("#collisions").html(collisions);
-                            thisParticle.merge(otherParticle);
+                            $scope.collisions++;
+
+                            thisParticle.merge(otherParticle,scene);
 
                         }
                     }
 
-                    thisParticle.setPosition(thisParticle.pos.add(thisParticle.speed));
+                    //thisParticle.setPosition(thisParticle.pos.add(thisParticle.speed));
                 }
 
             }
         }
+
 
         function updateForces() {
             var totalForce=0;
@@ -213,28 +354,33 @@ define(function(require, exports, module) {
                     if (thisParticle.destroyed || otherParticle.destroyed)
                         force = 0;
 
-                    var forceVector=otherParticle.pos.subtract(thisParticle.pos).multiply(force/distance);
-                    var invertedForceVector=thisParticle.pos.subtract(otherParticle.pos).multiply(force/distance);
+                    var forceVector=THREE.Vector3.zero();
+                    forceVector.subVectors(otherParticle.position,thisParticle.position);
+                    forceVector.multiplyScalar(force/distance);
+
+                    var invertedForceVector=THREE.Vector3.zero();
+                    invertedForceVector.subVectors(thisParticle.position,otherParticle.position);
+                    invertedForceVector.multiplyScalar(force/distance);
 
                     thisParticle.forces[otherIdx]=forceVector;
                     otherParticle.forces[thisIdx]=invertedForceVector;
                 }
 
             }
-            $("#force").html(Math.round(totalForce*100/particles.length)/100);
+            $scope.force=Math.round(totalForce*100/particles.length)/100;
         }
         function updateAccelerations() {
 
             for (var thisIdx = 0, l = particles.length; thisIdx < l; thisIdx++) {
                 var thisParticle = particles[thisIdx];
-                var resultantForce=Vector.Zero(3);
+                var resultantForce=THREE.Vector3.zero();
 
                 for (var otherIdx = 0; otherIdx < l; otherIdx++) {
                     if (thisIdx!=otherIdx)
-                        resultantForce=resultantForce.add(thisParticle.forces[otherIdx]);
+                        resultantForce.add(thisParticle.forces[otherIdx]);
                 }
-                var acceleration = resultantForce.multiply(1/thisParticle.mass);
-                if (isNaN(acceleration.elements[0]) || isNaN(acceleration.elements[1]) || isNaN(acceleration.elements[2]))
+                var acceleration = resultantForce.divideScalar(thisParticle.mass);
+                if (isNaN(acceleration.x) || isNaN(acceleration.y) || isNaN(acceleration.z))
                     log("bad accel for "+thisParticle.id);
                 else
                     thisParticle.acceleration=acceleration;
@@ -250,14 +396,14 @@ define(function(require, exports, module) {
                 if (thisParticle.accelArrow)
                     scene.remove(thisParticle.accelArrow);
                 thisParticle.speedArrow=new THREE.ArrowHelper(
-                    thisParticle.speed.toUnitVector().to3(),
+                    thisParticle.speed,
                     thisParticle.position,
-                    thisParticle.speed.modulus()*10,0x0000ff
+                    thisParticle.speed.length()*10,0x0000ff
                 );
                 thisParticle.accelArrow=new THREE.ArrowHelper(
-                    thisParticle.acceleration.toUnitVector().to3(),
+                    thisParticle.acceleration,
                     thisParticle.position,
-                    thisParticle.acceleration.modulus()*10,0x00ff00
+                    thisParticle.acceleration.length()*10,0x00ff00
                 );
                 scene.add(thisParticle.accelArrow);
                 scene.add(thisParticle.speedArrow);
@@ -280,11 +426,19 @@ define(function(require, exports, module) {
                 thisParticle.distances=[];
                 thisParticle.forces=[];
             }
-            renderer.render(scene, camera);
+
+            camera.position.x-=deltaCameraX;
+            camera.position.y-=deltaCameraY;
+
+                renderer.render(scene, camera);
+            $scope.$apply();
+            requestAnimFrame(step);
         }
 
 
         var particleId=0;
+
+
         function newParticle(){
             var radius = 10+Math.random(),
                 segments = 16,
@@ -295,107 +449,27 @@ define(function(require, exports, module) {
                     radius,
                     segments,
                     rings),
-                sphereMaterial
+                sphereMaterials[particleId%100]
             );
             particle.id=particleId;
             particleId++;
 
-            particle.merge=function(otherParticle) {
-                if (otherParticle.geometry.radius>this.geometry.radius){
-                    otherParticle.merge(this);
-                    return;
-                }
-                otherParticle.destroyed = true;
-                log("particle "+this.id +" collide with "+otherParticle.id/*+" new radius "+radiusFromVolume(this.volume+otherParticle.volume)*/);
-                this.setVolume(this.volume+otherParticle.volume);
-            };
-            particle.calculateVolume=function (){
-                this.volume=Math.pow(this.geometry.radius,3) * (4.0/3.0) * Math.PI;
-            };
-            particle.calculateMass=function (){
-                this.mass=this.volume*this.density;
-            };
-            function radiusFromVolume(volume) {
 
-                return Math.pow((volume * 3.0) / (4.0 * Math.PI), 1 / 3);
-            }
-
-            particle.checkStar=function() {
-                if (this.geometry.radius > 160.9 && !this.isStar) {
-                    this.star = new THREE.PointLight(0xFFFFFF, 1.0);
-                    this.isStar = true;
-                    this.star.position.x = this.position.x + 40;
-                    this.star.position.y = this.position.y + 40;
-                    this.star.position.z = this.position.z + 40;
-
-                    // add to the scene
-                    scene.add(this.star);
-                }
-            };
-
-            particle.setVolume=function (volume){
-                log("old volume:"+this.volume+" new volume:"+volume);
-
-                this.volume=volume;
-
-                var newRadius = radiusFromVolume(volume);
-                var oldRadius = this.geometry.radius;
-                log("old radius:"+oldRadius+" new radius:"+newRadius);
-                this.geometry.radius = newRadius;
-                this.calculateMass();
-                var fact = newRadius/oldRadius;
-                this.checkStar();
-
-                console.log(fact);
-                this.scale.x *= fact;
-                this.scale.y *= fact;
-                this.scale.z *= fact;
-
-
-
-            };
-
-            particle.log=function(){
-                function vectorLog(v) {
-                    return "["+Math.round(v.elements[0] * 100) / 100 +","+ Math.round(v.elements[1] * 100) / 100 + ","+Math.round(v.elements[2] * 100) / 100+"]";
-                }
-
-                log("#" + this.id +
-                    " speed:" + vectorLog(this.speed)+
-                    " acc:"+vectorLog(this.acceleration)+
-                    " mass:"+this.mass+
-                    " radius:"+this.geometry.radius
-                );
-            };
-            particle.setPosition=function(vector){
-                this.pos=vector;
-
-                this.position.x=this.pos.elements[0];
-                this.position.y=this.pos.elements[1];
-                this.position.z=this.pos.elements[2];
-                if (this.isStar){
-                    this.star.position.x=this.position.x+30;
-                    this.star.position.y=this.position.y+30;
-                    this.star.position.z=this.position.z+30;
-                }
-            };
-            particle.acceleration=Vector.Zero(3);
+            particle.acceleration=THREE.Vector3.zero();
             particle.destroyed=false;
-            particle.density=.5;
+            particle.density=.1;
             particle.distances=[];
             particle.forces=[];
             particle.isStar=false;
             particle.distanceFromCenter=0;
-            particle.speed=Vector.Zero(3);//Vector.Random(3).multiply(2);
-            var vector2 = Vector.Random(3).multiply(400).subtract(Vector.Random(3).multiply(200));
-            /* vector2.elements[2]=Math.cos(particleId)*20;
-             vector2.elements[1]=-particleId*40+Math.random()*20;
-             vector2.elements[0]=particleId*20;*/
-            particle.setPosition(vector2);
+            particle.speed=THREE.Vector3.zero();//Vector.Random(3).multiply(2);
+
+
+            particle.position.copy(THREE.Vector3.random($scope.particlesCount*5));
             particle.geometry.dynamic = true;
             particle.calculateVolume();
             particle.calculateMass();
-            particle.checkStar();
+            particle.checkStar(scene);
 
             particles.push(particle);
         }

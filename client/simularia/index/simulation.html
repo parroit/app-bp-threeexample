@@ -1,22 +1,26 @@
 
-    <div class="row workBox-container">
-            <div class="span7 workBox">
+    <div class="row">
+            <div class="span2">
                 <button class="btn btn-small btn-primary" ng-click="setupScene()">Start</button>
                 <button class="btn btn-small btn-primary" ng-click="start()">Step</button>
-                <button class="btn btn-small btn-primary" ng-click="zoomPlus()">avanti</button>
+                <!--<button class="btn btn-small btn-primary" ng-click="zoomPlus()">avanti</button>
                 <button class="btn btn-small btn-primary" ng-click="zoomMinus()">indietro</button>
                 <button class="btn btn-small btn-primary" ng-click="zoomSu()">Su</button>
                 <button class="btn btn-small btn-primary" ng-click="zoomGiu()">Giu</button>
                 <button class="btn btn-small btn-primary" ng-click="zoomSin()">Sin</button>
-                <button class="btn btn-small btn-primary" ng-click="zoomDes()">Des</button>
-                Collisions:<span id="collisions"></span>
-                Force:<span id="force"></span>
-                <div id="simularia" style="margin:30px;width:600px;height:600px;border: solid #d3d3d3 thin;"></div>
-
+                <button class="btn btn-small btn-primary" ng-click="zoomDes()">Des</button>-->
+            </div>
+            <div class="span4">
+                Particles n#:<numeric-inline width="span1" model="particlesCount"></numeric-inline>
+                Collisions:<span ng-bind="collisions"></span>
+                Force:<span ng-bind="force"></span>
 
             </div>
     </div>
-
-
+    <div class="row">
+        <div class="span12">
+            <div id="simularia"  ng-mousemove="cameraPosition($event)" style="position:absolute;left:50px;top:180px;width:600px;height:600px;border: solid #d3d3d3 thin;"></div>
+        </div>
+    </div>
 
 
