@@ -1,0 +1,16 @@
+{
+    "name": "app-bp-threeexample",
+    "version": "0.0.1",
+    "description": "A three.js example using app-bp",
+    "author": "Andrea Parodi",
+    "keywords": ["angular", "h5bp", "mvc","three.js","bootstrap", "boilerplate","todo","example"],
+    "repository" : {
+        "type": "git",
+        "url": "https://github.com/parroit/app-bp-threeexample.git"
+    },
+    "dependencies": {
+        "app-bp": "0.0.9"
+    },
+    "engines": { "node": "*" }
+
+}

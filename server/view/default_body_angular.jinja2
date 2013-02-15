@@ -1,0 +1,39 @@
+{% extends view_path("layout") %}
+{%  block content %}
+
+    <div class="container">
+
+        {% block body_content %}
+        {% endblock %}
+        <div ng-view class="space-above"></div>
+
+        <footer>
+            {% block footer %}
+            {% endblock %}
+        </footer>
+
+    </div>
+{% endblock %}
+
+{%  block scripts %}
+
+    <script type="text/javascript" src="js/moment/moment.min.js"></script>
+    <script type="text/javascript" src="js/angular.js"></script>
+    <script type="text/javascript" src="js/require.js"></script>
+    <script type="text/javascript" src="js/client.js"></script>
+    <script src="js/three.min.js"></script>
+    <script src="js/sylvester.js"></script>
+
+
+    <script type="text/javascript">
+        ClientApp.createFrom("{{ angular_app_name }}");
+
+
+
+    </script>
+{% endblock %}
+
+
+{% block additional_css %}
+
+{% endblock %}
