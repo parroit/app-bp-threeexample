@@ -282,13 +282,13 @@ define(function(require, exports, module) {
                  particle.speed=particle.speed.multiply(-1);
                  }*/
                 var speed = THREE.Vector3.zero();
-                speed.copy(particle.speed);
-                speed.add(particle.acceleration.multiplyScalar(0.01));
-                speed.multiplyScalar(0.999999);
+                /*speed.copy(particle.speed);*/
+                particle.speed.add(particle.acceleration.multiplyScalar(0.01));
+                /*speed.multiplyScalar(0.999999);
                 if (isNaN(speed.x) || isNaN(speed.y) || isNaN(speed.z))
-                    log("bad accel for "+particle.id);
+                    console.log("bad accel for "+particle.id);
                 else
-                    particle.speed.copy(speed);
+                    particle.speed.copy(speed);*/
             }
         }
         function removeDestroyed() {
@@ -349,21 +349,27 @@ define(function(require, exports, module) {
                     var distance = thisParticle.distances[otherIdx];
 
                     var force = thisParticle.mass*otherParticle.mass/Math.pow(distance,2);
+                    if (force<0.1){
+                        thisParticle.forces[otherIdx]=null;
+                        otherParticle.forces[thisIdx]=null;
+                    } else                                            {
+                        totalForce+=force;
 
-                    totalForce+=force;
-                    if (thisParticle.destroyed || otherParticle.destroyed)
-                        force = 0;
+                        if (thisParticle.destroyed || otherParticle.destroyed)
+                            force = 0;
 
-                    var forceVector=THREE.Vector3.zero();
-                    forceVector.subVectors(otherParticle.position,thisParticle.position);
-                    forceVector.multiplyScalar(force/distance);
+                        var forceVector=THREE.Vector3.zero();
+                        forceVector.subVectors(otherParticle.position,thisParticle.position);
+                        forceVector.multiplyScalar(force/distance);
 
-                    var invertedForceVector=THREE.Vector3.zero();
-                    invertedForceVector.subVectors(thisParticle.position,otherParticle.position);
-                    invertedForceVector.multiplyScalar(force/distance);
+                       /* var invertedForceVector=THREE.Vector3.zero();
+                        invertedForceVector.subVectors(thisParticle.position,otherParticle.position);
+                        invertedForceVector.multiplyScalar(force/distance);
+*/
+                        thisParticle.forces[otherIdx]=forceVector;
+//                        otherParticle.forces[thisIdx]=invertedForceVector;
+                    }
 
-                    thisParticle.forces[otherIdx]=forceVector;
-                    otherParticle.forces[thisIdx]=invertedForceVector;
                 }
 
             }
@@ -371,20 +377,29 @@ define(function(require, exports, module) {
         }
         function updateAccelerations() {
 
+            for (var i = 0, l2 = particles.length; i < l2; i++) {
+                var particle = particles[i];
+                particle.resultantForce=THREE.Vector3.zero();
+
+            }
             for (var thisIdx = 0, l = particles.length; thisIdx < l; thisIdx++) {
                 var thisParticle = particles[thisIdx];
-                var resultantForce=THREE.Vector3.zero();
-
-                for (var otherIdx = 0; otherIdx < l; otherIdx++) {
-                    if (thisIdx!=otherIdx)
-                        resultantForce.add(thisParticle.forces[otherIdx]);
+                for (var otherIdx = thisIdx+1; otherIdx < l; otherIdx++) {
+                    var otherParticle = particles[otherIdx];
+                    if (thisIdx!=otherIdx && thisParticle.forces[otherIdx]!==null) {
+                        thisParticle.resultantForce.add(thisParticle.forces[otherIdx]);
+                        otherParticle.resultantForce.add(thisParticle.forces[otherIdx].negate());
+                    }
                 }
-                var acceleration = resultantForce.divideScalar(thisParticle.mass);
-                if (isNaN(acceleration.x) || isNaN(acceleration.y) || isNaN(acceleration.z))
-                    log("bad accel for "+thisParticle.id);
-                else
-                    thisParticle.acceleration=acceleration;
             }
+
+            for (var i2 = 0, l3 = particles.length; i2 < l3; i2++) {
+                var particle2 = particles[i2];
+                particle2.acceleration.copy(particle2.resultantForce.divideScalar(particle2.mass));
+
+            }
+
+
         }
         function drawDirections() {
 
